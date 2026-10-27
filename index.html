@@ -29,7 +29,7 @@
   button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
   button.small { padding: 4px 10px; font-size: 13px; }
   button:disabled { opacity: .5; cursor: not-allowed; }
-  input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; width: 100%; background: #fff; color: var(--ink); }
+  input, select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; width: 100%; background: #fff; color: var(--ink); }
   input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   input.bad { border-color: var(--accent); background: #fdecea; }
 
@@ -49,7 +49,7 @@
   .bill-head h1 { margin: 6px 0 2px; font-size: 26px; letter-spacing: 1px; }
   .bill-head p { margin: 2px 0; font-size: 14px; color: var(--muted); }
 
-  .meta { display: grid; grid-template-columns: 90px 165px 1.4fr 1fr 130px; gap: 10px; margin-bottom: 14px; }
+  .meta { display: grid; grid-template-columns: 80px 150px 1.4fr 1fr 120px 120px; gap: 10px; margin-bottom: 14px; align-items: end; }
   .meta label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 3px; }
 
   table.items { width: 100%; border-collapse: collapse; }
@@ -108,7 +108,7 @@
 
   /* ---------- tablet & phone ---------- */
   @media (max-width: 1024px) {
-    input, button { font-size: 16px; }   /* 16px stops iOS zooming into focused inputs */
+    input, select, button { font-size: 16px; }   /* 16px stops iOS zooming into focused inputs */
     main { margin: 12px auto; }
     .meta { grid-template-columns: repeat(3, 1fr); }
     .actions {
@@ -121,7 +121,7 @@
     .toast { bottom: calc(90px + env(safe-area-inset-bottom)); }
   }
   @media (pointer: coarse) {
-    input, button { min-height: 44px; }
+    input, select, button { min-height: 44px; }
     .del-btn { min-width: 44px; }
     button.small { padding: 8px 14px; }
   }
@@ -208,7 +208,8 @@
     .p-words { margin: 8px 0; font-size: 11.5pt; }
     .p-sign { display: flex; justify-content: space-between; margin-top: 50px; font-size: 12pt; }
     .p-sign .right { text-align: right; }
-    .p-sign .for { font-weight: 700; margin-bottom: 40px; }
+    .p-sign .for { font-weight: 700; margin-bottom: 34px; }
+    .p-sign .sign-name { font-weight: 700; margin-bottom: 2px; }
   }
 </style>
 </head>
@@ -227,7 +228,6 @@
     <button class="small primary" id="btnPin">Connect</button>
   </span>
   <button class="small" id="btnRetry" hidden>Retry</button>
-  <button class="small" id="btnChangePin" hidden>Change PIN</button>
 </div>
 
 <main>
@@ -246,7 +246,8 @@
       <div><label for="billDate">Date</label><input id="billDate" type="date"></div>
       <div class="wide"><label for="ms">M/s. (Customer / Vehicle model)</label><input id="ms" placeholder="TATA TIAGO" enterkeyhint="next" autocapitalize="characters"></div>
       <div class="wide"><label for="vehNo">Vehicle No.</label><input id="vehNo" placeholder="KA03NA3457" style="text-transform:uppercase" enterkeyhint="next" autocapitalize="characters" autocomplete="off"></div>
-      <div class="wide"><label for="phone">Customer Phone</label><input id="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10 digits" enterkeyhint="next"></div>
+      <div><label for="phone">Customer Phone</label><input id="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10 digits" enterkeyhint="next"></div>
+      <div><label for="signatory">Authorised Signatory</label><select id="signatory"><option>Rakshith</option><option>Pramod</option></select></div>
     </div>
 
     <table class="items">
@@ -299,6 +300,7 @@ const API_URL = (window.CONFIG || {}).API_URL || '';
 const SEED_PARTS = ['Labour', 'Engine oil', 'Oil filter', 'Air filter', 'Fuel pump assembly', 'Battery clamp',
   'Brake cleaner spray', 'Body polish', 'Resonator hose', 'Dicky cable', 'Petrol float', 'Wheel alignment', 'Wheel balancing'];
 const PIN_KEY = 'garage-pin';
+const SIGN_KEY = 'garage-signatory';
 
 let parts = [];          // [{name, rate}] from the Parts tab
 let serverNextNo = 1;    // next bill no. reported by the sheet
@@ -328,6 +330,8 @@ function ask(msg) {
 
 const getPin = () => { try { return localStorage.getItem(PIN_KEY) || ''; } catch { return ''; } };
 const setPin = v => { try { v ? localStorage.setItem(PIN_KEY, v) : localStorage.removeItem(PIN_KEY); } catch { /* private window */ } };
+const getSign = () => { try { return localStorage.getItem(SIGN_KEY) || ''; } catch { return ''; } };
+const setSign = v => { try { localStorage.setItem(SIGN_KEY, v); } catch { /* private window */ } };
 
 /* ---------- dates ---------- */
 const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
@@ -506,6 +510,7 @@ function resetForm() {
   $('billNo').value = serverNextNo;
   $('billDate').value = todayISO();
   ['ms', 'vehNo', 'phone'].forEach(id => $(id).value = '');
+  if (getSign()) $('signatory').value = getSign();
   $('itemRows').innerHTML = '';
   addRow();
   recalc();
@@ -520,6 +525,7 @@ async function loadBill(no) {
   $('ms').value = b.ms || '';
   $('vehNo').value = b.vehicleNo || '';
   $('phone').value = b.phone || '';
+  if (b.signatory) $('signatory').value = b.signatory;
   $('itemRows').innerHTML = '';
   res.lines.forEach(l => addRow({ Particulars: l.particulars, Qty: l.qty, Rate: l.rate }));
   if (!$('itemRows').rows.length) addRow();
@@ -560,6 +566,7 @@ function collectBill() {
       'Bill No': no, 'Date': date, 'M/s': $('ms').value.trim(), 'Vehicle No': vehNo,
       'Customer Phone': phone, 'Total': total, 'Amount in Words': inWords(total),
       'Saved On': new Date().toLocaleString('en-IN'),
+      'Signatory': $('signatory').value,
     },
     lines,
   };
@@ -586,7 +593,7 @@ function renderPrint(data) {
     <div class="p-words">${esc(bill['Amount in Words'])}</div>
     <div class="p-sign">
       <div><br><br><br>Customer’s Signature</div>
-      <div class="right"><div class="for">For SRI MANJUNATHA GARAGE</div>Authorised Signatory</div>
+      <div class="right"><div class="for">For SRI MANJUNATHA GARAGE</div><div class="sign-name">${esc(bill['Signatory'])}</div>Authorised Signatory</div>
     </div>`;
 }
 function printBill(data) {
@@ -615,7 +622,6 @@ function setStatus(state, msg) {
   $('filebar').classList.toggle('connected', connected);
   $('pinBox').hidden = state !== 'pin';
   $('btnRetry').hidden = state !== 'offline';
-  $('btnChangePin').hidden = !connected;
   $('fileStatus').textContent = msg || {
     ok: 'Connected to Google Sheet.',
     pin: 'Enter the billing PIN to connect to the Google Sheet.',
@@ -641,7 +647,6 @@ async function connect() {
 $('btnPin').onclick = () => { const v = $('pin').value.trim(); if (!v) return; setPin(v); $('pin').value = ''; connect(); };
 $('pin').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnPin').click(); });
 $('btnRetry').onclick = connect;
-$('btnChangePin').onclick = () => { setPin(''); setStatus('pin'); };
 
 /* ---------- save ---------- */
 let saving = false;
@@ -659,7 +664,7 @@ async function save(andPrint) {
   }
   const b = data.bill;
   const payload = {
-    bill: { billNo: no, date: b['Date'], ms: b['M/s'], vehicleNo: b['Vehicle No'], phone: b['Customer Phone'], total: b['Total'], words: b['Amount in Words'] },
+    bill: { billNo: no, date: b['Date'], ms: b['M/s'], vehicleNo: b['Vehicle No'], phone: b['Customer Phone'], total: b['Total'], words: b['Amount in Words'], signatory: b['Signatory'] },
     lines: data.lines.map(l => ({ particulars: l.Particulars, qty: l.Qty, rate: l.Rate, amount: l.Amount })),
     replaceNo: editingBillNo && editingBillNo !== no ? editingBillNo : null,
   };
@@ -722,6 +727,7 @@ document.querySelectorAll('.tab').forEach(b => b.onclick = () => showTab(b.datas
 
 /* ---------- misc inputs ---------- */
 $('vehNo').addEventListener('input', e => { const p = e.target.selectionStart; e.target.value = e.target.value.toUpperCase(); e.target.setSelectionRange(p, p); });
+$('signatory').addEventListener('change', e => setSign(e.target.value));
 $('phone').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10); });
 
 /* ---------- startup ---------- */

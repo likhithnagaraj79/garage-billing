@@ -13,7 +13,7 @@
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MONTH_TAB = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{4})$/;
 const HEADERS = ['Bill No', 'Date', 'M/s', 'Vehicle No', 'Customer Phone', 'Sl.No', 'Particulars',
-  'Qty', 'Rate', 'Amount', 'Bill Total', 'Amount in Words', 'Saved On'];
+  'Qty', 'Rate', 'Amount', 'Bill Total', 'Amount in Words', 'Saved On', 'Authorised Signatory'];
 const C = {}; HEADERS.forEach((h, i) => C[h] = i);   // column index by header
 const PARTS_TAB = 'Parts';
 const PARTS_HEADERS = ['Particulars', 'Last Rate', 'Times Used'];
@@ -63,7 +63,7 @@ function save(req) {
     const rows = lines.map((l, i) => [
       no, bill.date, bill.ms || '', bill.vehicleNo || '', bill.phone || '', i + 1, l.particulars,
       Number(l.qty), Number(l.rate), Number(l.amount),
-      i === 0 ? Number(bill.total) : '', i === 0 ? bill.words || '' : '', savedOn,
+      i === 0 ? Number(bill.total) : '', i === 0 ? bill.words || '' : '', savedOn, bill.signatory || '',
     ]);
     const start = sh.getLastRow() + 1;
     sh.getRange(start, 1, rows.length, HEADERS.length).setValues(rows);
@@ -110,7 +110,7 @@ function getBill(req) {
   const lines = [];
   monthSheets().forEach(sh => dataRows(sh).forEach(r => {
     if (Number(r[C['Bill No']]) !== no) return;
-    if (!bill) bill = { billNo: no, date: dmy(r[C['Date']]), ms: r[C['M/s']], vehicleNo: r[C['Vehicle No']], phone: String(r[C['Customer Phone']]) };
+    if (!bill) bill = { billNo: no, date: dmy(r[C['Date']]), ms: r[C['M/s']], vehicleNo: r[C['Vehicle No']], phone: String(r[C['Customer Phone']]), signatory: r[C['Authorised Signatory']] || '' };
     lines.push({ sl: Number(r[C['Sl.No']]), particulars: r[C['Particulars']], qty: Number(r[C['Qty']]), rate: Number(r[C['Rate']]) });
   }));
   if (!bill) throw new Error('Bill No. ' + no + ' not found.');
@@ -134,7 +134,13 @@ function monthSheet(dateDMY, create) {
   const name = MONTHS[Number(p[1]) - 1] + '-' + p[2];
   const ss = SpreadsheetApp.getActive();
   let sh = ss.getSheetByName(name);
-  if (sh || !create) return sh;
+  if (sh) {
+    // tabs made before a column was added get the missing header cells
+    const head = sh.getRange(1, 1, 1, HEADERS.length);
+    if (head.getValues()[0].some((h, i) => h !== HEADERS[i])) head.setValues([HEADERS]).setFontWeight('bold').setBackground('#eeeeee');
+    return sh;
+  }
+  if (!create) return sh;
 
   // insert before the first later month so tabs stay in date order
   const key = tabKey(name);
@@ -146,7 +152,7 @@ function monthSheet(dateDMY, create) {
   sh.getRange('B:B').setNumberFormat('@');                       // Date as text DD/MM/YYYY
   sh.getRange('E:E').setNumberFormat('@');                       // Phone as text
   sh.getRange('I:K').setNumberFormat('#,##0.##');                // Rate, Amount, Bill Total
-  [70, 90, 160, 110, 110, 50, 220, 50, 80, 90, 90, 380, 130].forEach((w, i) => sh.setColumnWidth(i + 1, w));
+  [70, 90, 160, 110, 110, 50, 220, 50, 80, 90, 90, 380, 130, 140].forEach((w, i) => sh.setColumnWidth(i + 1, w));
   return sh;
 }
 
