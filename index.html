@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#222222">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Garage Bill">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>Garage Cash Bill</title>
+<script src="config.js"></script>
+<style>
+  :root {
+    --ink: #1c1c1c;
+    --muted: #666;
+    --line: #c9c9c9;
+    --bg: #f4f4f1;
+    --card: #fff;
+    --accent: #b3261e;
+    --accent-ink: #fff;
+    --ok: #1e7a3a;
+    --warn-bg: #fff4d6;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--bg); }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--card); padding: 8px 14px; border-radius: 6px; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button.small { padding: 4px 10px; font-size: 13px; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  input { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; width: 100%; background: #fff; color: var(--ink); }
+  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  input.bad { border-color: var(--accent); background: #fdecea; }
+
+  .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; background: #222; color: #fff; }
+  .topbar .brand { font-weight: 700; margin-right: auto; }
+  .topbar .tab { background: transparent; color: #ddd; border-color: transparent; }
+  .topbar .tab.active { background: #fff; color: #222; }
+  .filebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 16px; background: var(--warn-bg); border-bottom: 1px solid var(--line); font-size: 14px; }
+  .filebar.connected { background: #e8f5ec; }
+  .filebar .status { margin-right: auto; }
+
+  main { max-width: 900px; margin: 16px auto; padding: 0 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+
+  .bill-head { text-align: center; border-bottom: 2px solid var(--ink); padding-bottom: 10px; margin-bottom: 12px; }
+  .bill-head .cash { display: inline-block; border: 1px solid var(--ink); padding: 1px 10px; font-size: 13px; font-weight: 700; letter-spacing: 1px; }
+  .bill-head h1 { margin: 6px 0 2px; font-size: 26px; letter-spacing: 1px; }
+  .bill-head p { margin: 2px 0; font-size: 14px; color: var(--muted); }
+
+  .meta { display: grid; grid-template-columns: 90px 165px 1.4fr 1fr 130px; gap: 10px; margin-bottom: 14px; }
+  .meta label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 3px; }
+
+  table.items { width: 100%; border-collapse: collapse; }
+  table.items th, table.items td { border: 1px solid var(--line); padding: 4px; }
+  table.items th { background: #eee; font-size: 13px; }
+  table.items td.sl { text-align: center; width: 44px; }
+  table.items td.qty { width: 70px; }
+  table.items td.rate { width: 110px; }
+  table.items td.amt { width: 120px; text-align: right; font-variant-numeric: tabular-nums; padding-right: 8px; }
+  table.items td.del { width: 36px; text-align: center; }
+  table.items input { border-color: transparent; }
+  table.items input:hover { border-color: var(--line); }
+  table.items input.num { text-align: right; }
+  table.items input.num { -moz-appearance: textfield; }
+  table.items input.num::-webkit-inner-spin-button, table.items input.num::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  table.items tfoot td { font-weight: 700; font-size: 17px; }
+  .del-btn { border: none; background: none; color: var(--muted); font-size: 18px; padding: 0 4px; }
+  .del-btn:hover { color: var(--accent); }
+  .words { margin: 10px 0 0; font-style: italic; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .actions .spacer { flex: 1; }
+  .editing-note { background: var(--warn-bg); padding: 6px 10px; border-radius: 4px; margin-bottom: 10px; font-size: 14px; }
+
+  .search-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .search-row label { font-size: 12px; color: var(--muted); }
+  table.list { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.list th, table.list td { border-bottom: 1px solid var(--line); padding: 8px 6px; text-align: left; }
+  table.list td.r, table.list th.r { text-align: right; }
+  table.list tbody tr { cursor: pointer; }
+  table.list tbody tr:hover { background: #f6f6f6; }
+  .empty { color: var(--muted); padding: 20px; text-align: center; }
+
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #222; color: #fff; padding: 10px 18px; border-radius: 6px; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+  .toast.show { opacity: 1; }
+  .toast.err { background: var(--accent); }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none; align-items: center; justify-content: center; padding: 16px; }
+  .modal-bg.show { display: flex; }
+  .modal { background: #fff; border-radius: 8px; padding: 20px; max-width: 420px; width: 100%; }
+  .modal .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+  #printArea { display: none; }
+
+  /* particulars suggestion dropdown */
+  .suggest { position: absolute; z-index: 20; background: #fff; border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.15); max-height: 300px; overflow-y: auto; display: none; }
+  .suggest.show { display: block; }
+  .suggest div { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+  .suggest div:last-child { border-bottom: none; }
+  .suggest div.active, .suggest div:hover { background: #fbeaea; }
+  .suggest .rate { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+  .row-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .row-tools .spacer { flex: 1; }
+  .sticky-total { display: none; line-height: 1.15; }
+  .sticky-total small { display: block; font-size: 12px; color: var(--muted); }
+  .sticky-total b { font-size: 20px; font-variant-numeric: tabular-nums; }
+
+  /* ---------- tablet & phone ---------- */
+  @media (max-width: 1024px) {
+    input, button { font-size: 16px; }   /* 16px stops iOS zooming into focused inputs */
+    main { margin: 12px auto; }
+    .meta { grid-template-columns: repeat(3, 1fr); }
+    .actions {
+      position: sticky; bottom: 0; z-index: 10; align-items: center;
+      margin: 16px -18px -18px; padding: 10px 18px calc(10px + env(safe-area-inset-bottom));
+      background: var(--card); border-top: 1px solid var(--line); border-radius: 0 0 8px 8px;
+      box-shadow: 0 -4px 12px rgba(0,0,0,.08);
+    }
+    .sticky-total { display: block; }
+    .toast { bottom: calc(90px + env(safe-area-inset-bottom)); }
+  }
+  @media (pointer: coarse) {
+    input, button { min-height: 44px; }
+    .del-btn { min-width: 44px; }
+    button.small { padding: 8px 14px; }
+  }
+
+  /* ---------- phone ---------- */
+  @media (max-width: 640px) {
+    main { padding: 0 8px; margin: 8px auto; }
+    .card { padding: 12px; }
+    .topbar { padding: 8px 12px; }
+    .topbar .brand { width: 100%; }
+    .topbar .brand .sub { display: none; }
+    .topbar .tab { flex: 1; }
+    .filebar { padding: 8px 12px; }
+    .filebar .status { width: 100%; }
+    .filebar #pinBox { display: flex; gap: 8px; width: 100%; }
+    .filebar #pinBox[hidden] { display: none; }
+    .filebar #pinBox input { flex: 1; width: auto !important; }
+
+    .bill-head h1 { font-size: 20px; }
+    .bill-head p { font-size: 12px; }
+    .meta { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .meta .wide { grid-column: 1 / -1; }
+
+    /* items: each row becomes a card */
+    table.items thead { display: none; }
+    table.items, table.items tbody { display: block; }
+    table.items tbody tr {
+      display: grid; grid-template-columns: 28px 64px 1fr 1fr 44px; gap: 4px 8px;
+      grid-template-areas: "sl part part part del" ". qty rate amt amt";
+      border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-bottom: 8px;
+    }
+    table.items td { border: none; padding: 0; width: auto !important; }
+    table.items td.sl { grid-area: sl; align-self: center; font-weight: 700; color: var(--muted); }
+    table.items td.pt { grid-area: part; }
+    table.items td.qty { grid-area: qty; }
+    table.items td.rate { grid-area: rate; }
+    table.items td.amt { grid-area: amt; align-self: end; padding: 0 0 10px; font-weight: 600; }
+    table.items td.del { grid-area: del; align-self: center; }
+    table.items td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; color: var(--muted); text-align: left; margin-bottom: 2px; }
+    table.items td.amt::before { text-align: right; }
+    table.items input { border-color: var(--line); }
+    table.items tfoot { display: none; }
+    .row-tools #btnAddRow { width: 100%; border-style: dashed; }
+    .row-tools .spacer { display: none; }
+    .row-tools #btnClear, .row-tools #btnPrint { flex: 1; }
+    .actions { margin: 12px -12px -12px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); gap: 6px; }
+    .actions button { padding: 8px 10px; }
+
+    /* past bills: card list */
+    .search-row { grid-template-columns: 1fr 1fr; }
+    .search-row > div:first-child { grid-column: 1 / -1; }
+    table.list thead { display: none; }
+    table.list, table.list tbody { display: block; }
+    table.list tbody tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+    table.list td { border: none; padding: 0; }
+    table.list td:nth-child(1) { font-weight: 700; }
+    table.list td:nth-child(1)::before { content: 'No. '; }
+    table.list td:nth-child(6) { margin-left: auto; font-weight: 700; }
+    table.list td:nth-child(6)::before { content: '₹ '; }
+    table.list td:nth-child(3) { order: 1; flex-basis: 100%; }
+    table.list td:nth-child(4), table.list td:nth-child(5) { order: 2; color: var(--muted); font-size: 13px; }
+
+    .modal .btns { flex-direction: column-reverse; }
+    .modal .btns button { width: 100%; }
+  }
+
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    body { background: #fff; }
+    .no-print, .topbar, .filebar, main, .toast, .modal-bg { display: none !important; }
+    #printArea { display: block; font-family: "Times New Roman", serif; color: #000; }
+    .p-head { text-align: center; }
+    .p-head .cash { display: inline-block; border: 1px solid #000; padding: 1px 10px; font-weight: 700; font-size: 12pt; }
+    .p-head h1 { margin: 6px 0 2px; font-size: 24pt; letter-spacing: 1px; }
+    .p-head p { margin: 1px 0; font-size: 11pt; }
+    .p-meta { display: flex; justify-content: space-between; margin: 12px 0 4px; font-size: 12pt; }
+    .p-ms { font-size: 12pt; margin: 6px 0 10px; }
+    .p-table { width: 100%; border-collapse: collapse; font-size: 11.5pt; }
+    .p-table th, .p-table td { border: 1px solid #000; padding: 4px 6px; }
+    .p-table th { font-weight: 700; }
+    .p-table .c { text-align: center; }
+    .p-table .r { text-align: right; }
+    .p-table tfoot td { font-weight: 700; }
+    .p-words { margin: 8px 0; font-size: 11.5pt; }
+    .p-sign { display: flex; justify-content: space-between; margin-top: 50px; font-size: 12pt; }
+    .p-sign .right { text-align: right; }
+    .p-sign .for { font-weight: 700; margin-bottom: 40px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar no-print">
+  <div class="brand">Sri Manjunatha Garage<span class="sub"> — Billing</span></div>
+  <button class="tab active" data-tab="bill">New Bill</button>
+  <button class="tab" data-tab="past">Past Bills</button>
+</div>
+
+<div class="filebar no-print" id="filebar">
+  <span class="status" id="fileStatus">Connecting to Google Sheet…</span>
+  <span id="pinBox" hidden>
+    <input id="pin" type="password" inputmode="numeric" placeholder="PIN" style="width:110px">
+    <button class="small primary" id="btnPin">Connect</button>
+  </span>
+  <button class="small" id="btnRetry" hidden>Retry</button>
+  <button class="small" id="btnChangePin" hidden>Change PIN</button>
+</div>
+
+<main>
+  <!-- New bill -->
+  <section id="tab-bill" class="card">
+    <div class="editing-note" id="editingNote" hidden></div>
+    <div class="bill-head">
+      <span class="cash">CASH BILL</span>
+      <h1>SRI MANJUNATHA GARAGE</h1>
+      <p>No. 378, 2nd Main, Kempegowda Layout, Laggere Bridge, Bangalore - 560 058.</p>
+      <p>Mob: 9380425419 / 8073979225</p>
+    </div>
+
+    <div class="meta">
+      <div><label for="billNo">Bill No.</label><input id="billNo" type="number" min="1" inputmode="numeric" enterkeyhint="next"></div>
+      <div><label for="billDate">Date</label><input id="billDate" type="date"></div>
+      <div class="wide"><label for="ms">M/s. (Customer / Vehicle model)</label><input id="ms" placeholder="TATA TIAGO" enterkeyhint="next" autocapitalize="characters"></div>
+      <div class="wide"><label for="vehNo">Vehicle No.</label><input id="vehNo" placeholder="KA03NA3457" style="text-transform:uppercase" enterkeyhint="next" autocapitalize="characters" autocomplete="off"></div>
+      <div class="wide"><label for="phone">Customer Phone</label><input id="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10 digits" enterkeyhint="next"></div>
+    </div>
+
+    <table class="items">
+      <thead>
+        <tr><th>Sl.No</th><th>PARTICULARS</th><th>QTY</th><th>RATE</th><th>AMOUNT</th><th class="no-print"></th></tr>
+      </thead>
+      <tbody id="itemRows"></tbody>
+      <tfoot>
+        <tr><td colspan="4" style="text-align:right">TOTAL</td><td class="amt" id="total">0</td><td></td></tr>
+      </tfoot>
+    </table>
+    <div class="row-tools no-print">
+      <button id="btnAddRow">+ Add item</button>
+      <span class="spacer"></span>
+      <button id="btnClear">Clear</button>
+      <button id="btnPrint">Print</button>
+    </div>
+    <p class="words" id="words"></p>
+
+    <div class="actions no-print">
+      <div class="sticky-total"><small>Total</small><b id="stickyTotal">₹ 0</b></div>
+      <span class="spacer"></span>
+      <button id="btnSave">Save</button>
+      <button id="btnSavePrint" class="primary">Save &amp; Print</button>
+    </div>
+  </section>
+
+  <!-- Past bills -->
+  <section id="tab-past" class="card" hidden>
+    <div class="search-row">
+      <div><label for="q">Search bill no., vehicle no., phone, M/s</label><input id="q" placeholder="e.g. KA03 or 129"></div>
+      <div><label for="from">From date</label><input id="from" type="date"></div>
+      <div><label for="to">To date</label><input id="to" type="date"></div>
+    </div>
+    <table class="list">
+      <thead><tr><th>No.</th><th>Date</th><th>M/s</th><th>Vehicle No.</th><th>Phone</th><th class="r">Total</th></tr></thead>
+      <tbody id="pastRows"></tbody>
+    </table>
+    <div class="empty" id="pastEmpty" hidden>No bills found.</div>
+  </section>
+</main>
+
+<div class="suggest no-print" id="suggest" role="listbox"></div>
+<div id="printArea"></div>
+<div class="toast" id="toast"></div>
+<div class="modal-bg" id="modal"><div class="modal"><div id="modalMsg"></div><div class="btns"><button id="modalNo">Cancel</button><button id="modalYes" class="primary">OK</button></div></div></div>
+
+<script>
+const API_URL = (window.CONFIG || {}).API_URL || '';
+const SEED_PARTS = ['Labour', 'Engine oil', 'Oil filter', 'Air filter', 'Fuel pump assembly', 'Battery clamp',
+  'Brake cleaner spray', 'Body polish', 'Resonator hose', 'Dicky cable', 'Petrol float', 'Wheel alignment', 'Wheel balancing'];
+const PIN_KEY = 'garage-pin';
+
+let parts = [];          // [{name, rate}] from the Parts tab
+let serverNextNo = 1;    // next bill no. reported by the sheet
+let connected = false;
+let editingBillNo = null;
+
+const $ = id => document.getElementById(id);
+const fmt = n => (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+
+/* ---------- small UI helpers ---------- */
+function toast(msg, isErr) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(() => t.className = 'toast', isErr ? 5000 : 2500);
+}
+function ask(msg) {
+  return new Promise(resolve => {
+    $('modalMsg').textContent = msg;
+    $('modal').classList.add('show');
+    const done = v => { $('modal').classList.remove('show'); $('modalYes').onclick = $('modalNo').onclick = null; resolve(v); };
+    $('modalYes').onclick = () => done(true);
+    $('modalNo').onclick = () => done(false);
+  });
+}
+
+const getPin = () => { try { return localStorage.getItem(PIN_KEY) || ''; } catch { return ''; } };
+const setPin = v => { try { v ? localStorage.setItem(PIN_KEY, v) : localStorage.removeItem(PIN_KEY); } catch { /* private window */ } };
+
+/* ---------- dates ---------- */
+const todayISO = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); };
+const isoToDMY = iso => iso ? iso.split('-').reverse().join('/') : '';
+const dmyToISO = dmy => { const p = String(dmy || '').split('/'); return p.length === 3 ? `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}` : ''; };
+
+/* ---------- amount in words (Indian system) ---------- */
+const ONES = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve',
+  'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+const TENS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+function twoDigits(n) { return n < 20 ? ONES[n] : TENS[Math.floor(n / 10)] + (n % 10 ? ' ' + ONES[n % 10] : ''); }
+function threeDigits(n) {
+  const h = Math.floor(n / 100), r = n % 100;
+  return [h ? ONES[h] + ' Hundred' : '', r ? twoDigits(r) : ''].filter(Boolean).join(' ');
+}
+function inWords(num) {
+  let n = Math.floor(Math.abs(num));
+  const paise = Math.round((Math.abs(num) - n) * 100);
+  if (!n && !paise) return '';
+  const parts = [];
+  const crore = Math.floor(n / 1e7); n %= 1e7;
+  const lakh = Math.floor(n / 1e5); n %= 1e5;
+  const thousand = Math.floor(n / 1e3); n %= 1e3;
+  if (crore) parts.push(inWords(crore).replace(/^Rupees | Only$/g, '') + ' Crore');
+  if (lakh) parts.push(twoDigits(lakh) + ' Lakh');
+  if (thousand) parts.push(twoDigits(thousand) + ' Thousand');
+  if (n) parts.push(threeDigits(n));
+  let s = 'Rupees ' + (parts.join(' ') || 'Zero');
+  if (paise) s += ' and ' + twoDigits(paise) + ' Paise';
+  return s + ' Only';
+}
+
+/* ---------- item rows ---------- */
+function addRow(data = {}, focus) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="sl"></td>
+    <td class="pt"><input class="part" autocomplete="off" placeholder="Particulars" enterkeyhint="next"></td>
+    <td class="qty" data-label="Qty"><input class="qtyIn num" type="number" min="0" step="any" inputmode="decimal" enterkeyhint="next"></td>
+    <td class="rate" data-label="Rate"><input class="rateIn num" type="number" min="0" step="any" inputmode="decimal" enterkeyhint="next"></td>
+    <td class="amt" data-label="Amount">0</td>
+    <td class="del no-print"><button class="del-btn" title="Remove row">✕</button></td>`;
+  tr.querySelector('.part').value = data.Particulars || '';
+  tr.querySelector('.qtyIn').value = data.Qty ?? 1;
+  tr.querySelector('.rateIn').value = data.Rate ?? '';
+  $('itemRows').appendChild(tr);
+  renumber();
+  recalc();
+  if (focus) tr.querySelector('.part').focus();
+  return tr;
+}
+function renumber() {
+  [...$('itemRows').rows].forEach((tr, i) => tr.cells[0].textContent = i + 1);
+}
+function readRows() {
+  return [...$('itemRows').rows].map(tr => ({
+    tr,
+    Particulars: tr.querySelector('.part').value.trim(),
+    Qty: parseFloat(tr.querySelector('.qtyIn').value),
+    Rate: parseFloat(tr.querySelector('.rateIn').value),
+  }));
+}
+function recalc() {
+  let total = 0;
+  readRows().forEach(r => {
+    const amt = (r.Qty || 0) * (r.Rate || 0);
+    r.tr.querySelector('.amt').textContent = fmt(amt);
+    total += amt;
+  });
+  total = Math.round(total * 100) / 100;
+  $('total').textContent = fmt(total);
+  $('stickyTotal').textContent = '₹ ' + fmt(total);
+  $('words').textContent = inWords(total);
+  return total;
+}
+
+$('itemRows').addEventListener('input', e => {
+  if (e.target.classList.contains('part')) { fillRate(e.target); showSuggest(e.target); }
+  e.target.classList.remove('bad');
+  recalc();
+});
+$('itemRows').addEventListener('click', e => {
+  if (!e.target.classList.contains('del-btn')) return;
+  e.target.closest('tr').remove();
+  if (!$('itemRows').rows.length) addRow();
+  renumber();
+  recalc();
+});
+$('itemRows').addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+  e.preventDefault();
+  const tr = e.target.closest('tr');
+  const inputs = [...tr.querySelectorAll('input')];
+  const i = inputs.indexOf(e.target);
+  if (i < inputs.length - 1) { inputs[i + 1].focus(); inputs[i + 1].select?.(); return; }
+  const next = tr.nextElementSibling;
+  if (next) next.querySelector('.part').focus();
+  else addRow({}, true);
+});
+$('btnAddRow').onclick = () => addRow({}, true);
+
+/* ---------- suggestions: remember particulars + last rate ---------- */
+function partMemory() {
+  const map = new Map();
+  SEED_PARTS.forEach(p => map.set(p.toLowerCase(), { name: p, rate: null }));
+  parts.forEach(p => { if (p.name) map.set(p.name.toLowerCase(), p); });
+  return map;
+}
+// one dropdown, reused for whichever Particulars box has focus (works the same on phone, tablet, laptop)
+let suggestFor = null, suggestIdx = -1;
+function showSuggest(input) {
+  const q = input.value.trim().toLowerCase();
+  const box = $('suggest');
+  const hits = [...partMemory().values()]
+    .filter(p => !q || p.name.toLowerCase().includes(q))
+    .sort((a, b) => (b.name.toLowerCase().startsWith(q) - a.name.toLowerCase().startsWith(q)) || a.name.localeCompare(b.name))
+    .slice(0, 8);
+  if (!hits.length || (hits.length === 1 && hits[0].name.toLowerCase() === q)) { hideSuggest(); return; }
+  suggestFor = input;
+  suggestIdx = -1;
+  box.innerHTML = hits.map((p, i) => `<div role="option" data-i="${i}"><span>${esc(p.name)}</span><span class="rate">${p.rate ? '₹ ' + fmt(p.rate) : ''}</span></div>`).join('');
+  box._hits = hits;
+  const r = input.getBoundingClientRect();
+  box.style.left = (r.left + window.scrollX) + 'px';
+  box.style.top = (r.bottom + window.scrollY + 2) + 'px';
+  box.style.width = Math.max(r.width, 220) + 'px';
+  box.classList.add('show');
+}
+function hideSuggest() {
+  $('suggest').classList.remove('show');
+  suggestFor = null;
+}
+function pickSuggest(i) {
+  const p = $('suggest')._hits[i], input = suggestFor;
+  if (!p || !input) return;
+  input.value = p.name;
+  input.classList.remove('bad');
+  fillRate(input);
+  recalc();
+  hideSuggest();
+  const qty = input.closest('tr').querySelector('.qtyIn');
+  qty.focus();
+  qty.select?.();
+}
+function moveSuggest(d) {
+  const items = $('suggest').children;
+  if (!items.length) return;
+  suggestIdx = (suggestIdx + d + items.length) % items.length;
+  [...items].forEach((el, i) => el.classList.toggle('active', i === suggestIdx));
+  items[suggestIdx].scrollIntoView({ block: 'nearest' });
+}
+function refreshSuggestions() { if (suggestFor) showSuggest(suggestFor); }
+
+$('suggest').addEventListener('mousedown', e => e.preventDefault());   // keep focus in the input
+$('suggest').addEventListener('click', e => { const el = e.target.closest('[data-i]'); if (el) pickSuggest(+el.dataset.i); });
+$('itemRows').addEventListener('focusin', e => { if (e.target.classList.contains('part')) showSuggest(e.target); });
+$('itemRows').addEventListener('focusout', e => { if (e.target === suggestFor) setTimeout(() => { if (document.activeElement !== suggestFor) hideSuggest(); }, 150); });
+$('itemRows').addEventListener('keydown', e => {   // capture: runs before the Enter-moves-focus handler
+  if (!suggestFor || e.target !== suggestFor || !$('suggest').classList.contains('show')) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); moveSuggest(1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); moveSuggest(-1); }
+  else if (e.key === 'Escape') { hideSuggest(); }
+  else if (e.key === 'Enter' && suggestIdx >= 0) { e.preventDefault(); e.stopPropagation(); pickSuggest(suggestIdx); }
+}, true);
+window.addEventListener('resize', () => { if (suggestFor) showSuggest(suggestFor); });
+function fillRate(partInput) {
+  const hit = partMemory().get(partInput.value.trim().toLowerCase());
+  const rateIn = partInput.closest('tr').querySelector('.rateIn');
+  if (hit && hit.rate && !rateIn.value) rateIn.value = hit.rate;
+}
+
+/* ---------- form ---------- */
+function resetForm() {
+  editingBillNo = null;
+  $('editingNote').hidden = true;
+  $('billNo').value = serverNextNo;
+  $('billDate').value = todayISO();
+  ['ms', 'vehNo', 'phone'].forEach(id => $(id).value = '');
+  $('itemRows').innerHTML = '';
+  addRow();
+  recalc();
+}
+async function loadBill(no) {
+  let res;
+  try { res = await api('get', { no: Number(no) }); } catch (e) { toast(e.message, true); return; }
+  const b = res.bill;
+  editingBillNo = Number(no);
+  $('billNo').value = b.billNo;
+  $('billDate').value = dmyToISO(b.date);
+  $('ms').value = b.ms || '';
+  $('vehNo').value = b.vehicleNo || '';
+  $('phone').value = b.phone || '';
+  $('itemRows').innerHTML = '';
+  res.lines.forEach(l => addRow({ Particulars: l.particulars, Qty: l.qty, Rate: l.rate }));
+  if (!$('itemRows').rows.length) addRow();
+  $('editingNote').textContent = `Editing saved bill No. ${no}. Saving will replace it in the Google Sheet.`;
+  $('editingNote').hidden = false;
+  recalc();
+  showTab('bill');
+}
+function collectBill() {
+  document.querySelectorAll('.bad').forEach(el => el.classList.remove('bad'));
+  const errors = [];
+  const no = parseInt($('billNo').value, 10);
+  if (!no || no < 1) { $('billNo').classList.add('bad'); errors.push('Bill No.'); }
+  if (!$('billDate').value) { $('billDate').classList.add('bad'); errors.push('Date'); }
+  const phone = $('phone').value.trim();
+  if (phone && !/^\d{10}$/.test(phone)) { $('phone').classList.add('bad'); errors.push('Phone must be 10 digits'); }
+
+  const rows = readRows().filter(r => r.Particulars || r.Rate);
+  if (!rows.length) errors.push('Add at least one item');
+  rows.forEach(r => {
+    if (!r.Particulars) r.tr.querySelector('.part').classList.add('bad');
+    if (!(r.Qty > 0)) r.tr.querySelector('.qtyIn').classList.add('bad');
+    if (!(r.Rate >= 0) || isNaN(r.Rate)) r.tr.querySelector('.rateIn').classList.add('bad');
+  });
+  if (rows.some(r => !r.Particulars || !(r.Qty > 0) || isNaN(r.Rate) || r.Rate < 0)) errors.push('Check highlighted items');
+  if (errors.length) { toast('Please fix: ' + errors.join(', '), true); return null; }
+
+  const date = isoToDMY($('billDate').value);
+  const vehNo = $('vehNo').value.trim().toUpperCase();
+  const lines = rows.map((r, i) => ({
+    'Bill No': no, 'Date': date, 'Vehicle No': vehNo, 'Sl.No': i + 1,
+    'Particulars': r.Particulars, 'Qty': r.Qty, 'Rate': r.Rate,
+    'Amount': Math.round(r.Qty * r.Rate * 100) / 100,
+  }));
+  const total = Math.round(lines.reduce((s, l) => s + l.Amount, 0) * 100) / 100;
+  return {
+    bill: {
+      'Bill No': no, 'Date': date, 'M/s': $('ms').value.trim(), 'Vehicle No': vehNo,
+      'Customer Phone': phone, 'Total': total, 'Amount in Words': inWords(total),
+      'Saved On': new Date().toLocaleString('en-IN'),
+    },
+    lines,
+  };
+}
+
+/* ---------- print ---------- */
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function renderPrint(data) {
+  const { bill, lines } = data;
+  $('printArea').innerHTML = `
+    <div class="p-head">
+      <span class="cash">CASH BILL</span>
+      <h1>SRI MANJUNATHA GARAGE</h1>
+      <p>No. 378, 2nd Main, Kempegowda Layout, Laggere Bridge, Bangalore - 560 058.</p>
+      <p>Mob: 9380425419 / 8073979225</p>
+    </div>
+    <div class="p-meta"><span>No. <b>${esc(bill['Bill No'])}</b></span><span>Date: <b>${esc(bill['Date'])}</b></span></div>
+    <div class="p-ms">M/s. <b>${esc(bill['M/s'])}&nbsp;&nbsp;${esc(bill['Vehicle No'])}</b>${bill['Customer Phone'] ? `&nbsp;&nbsp;&nbsp;Ph: ${esc(bill['Customer Phone'])}` : ''}</div>
+    <table class="p-table">
+      <thead><tr><th class="c" style="width:50px">Sl.No</th><th>PARTICULARS</th><th class="c" style="width:60px">QTY</th><th class="r" style="width:90px">RATE</th><th class="r" style="width:110px">AMOUNT</th></tr></thead>
+      <tbody>${lines.map(l => `<tr><td class="c">${l['Sl.No']}</td><td>${esc(l.Particulars)}</td><td class="c">${fmt(l.Qty)}</td><td class="r">${fmt(l.Rate)}</td><td class="r">${fmt(l.Amount)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td colspan="4" class="r">TOTAL</td><td class="r">${fmt(bill.Total)}</td></tr></tfoot>
+    </table>
+    <div class="p-words">${esc(bill['Amount in Words'])}</div>
+    <div class="p-sign">
+      <div><br><br><br>Customer’s Signature</div>
+      <div class="right"><div class="for">For SRI MANJUNATHA GARAGE</div>Authorised Signatory</div>
+    </div>`;
+}
+function printBill(data) {
+  renderPrint(data);
+  window.print();
+}
+$('btnPrint').onclick = () => { const d = collectBill(); if (d) printBill(d); };
+
+/* ---------- Google Sheet API ---------- */
+async function api(action, payload = {}) {
+  let res;
+  try {
+    // text/plain body keeps this a "simple" request, so Apps Script needs no CORS preflight
+    const r = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action, pin: getPin(), ...payload }) });
+    res = await r.json();
+  } catch {
+    setStatus('offline');
+    throw new Error('Cannot reach the Google Sheet. Check the internet connection and try again.');
+  }
+  if (res.badPin) { setPin(''); setStatus('pin'); throw new Error('Wrong PIN. Please enter the correct PIN.'); }
+  if (!res.ok) throw new Error(res.error || 'Google Sheet error');
+  return res;
+}
+function setStatus(state, msg) {
+  connected = state === 'ok';
+  $('filebar').classList.toggle('connected', connected);
+  $('pinBox').hidden = state !== 'pin';
+  $('btnRetry').hidden = state !== 'offline';
+  $('btnChangePin').hidden = !connected;
+  $('fileStatus').textContent = msg || {
+    ok: 'Connected to Google Sheet.',
+    pin: 'Enter the billing PIN to connect to the Google Sheet.',
+    offline: 'Cannot reach the Google Sheet (no internet?). Bills cannot be saved right now.',
+    setup: 'Setup needed: put the Apps Script web app URL in config.js.',
+    busy: 'Connecting to Google Sheet…',
+  }[state];
+  if (state === 'pin') setTimeout(() => $('pin').focus(), 0);
+}
+async function connect() {
+  if (!/^https:\/\/script\.google\.com\//.test(API_URL)) { setStatus('setup'); return; }
+  if (!getPin()) { setStatus('pin'); return; }
+  setStatus('busy');
+  try {
+    const res = await api('init');
+    parts = res.parts || [];
+    serverNextNo = res.nextBillNo || 1;
+    setStatus('ok');
+    refreshSuggestions();
+    if (!editingBillNo) $('billNo').value = serverNextNo;
+  } catch (e) { toast(e.message, true); }
+}
+$('btnPin').onclick = () => { const v = $('pin').value.trim(); if (!v) return; setPin(v); $('pin').value = ''; connect(); };
+$('pin').addEventListener('keydown', e => { if (e.key === 'Enter') $('btnPin').click(); });
+$('btnRetry').onclick = connect;
+$('btnChangePin').onclick = () => { setPin(''); setStatus('pin'); };
+
+/* ---------- save ---------- */
+let saving = false;
+async function save(andPrint) {
+  if (saving) return;
+  if (!connected) { toast('Not connected to the Google Sheet (see the bar at the top).', true); return; }
+  const data = collectBill();
+  if (!data) return;
+  const no = data.bill['Bill No'];
+  if (no !== editingBillNo) {
+    try {
+      const { bills } = await api('search', { q: String(no) });
+      if (bills.some(b => b.billNo === no) && !await ask(`Bill No. ${no} already exists in the Google Sheet. Replace it?`)) return;
+    } catch (e) { toast(e.message, true); return; }
+  }
+  const b = data.bill;
+  const payload = {
+    bill: { billNo: no, date: b['Date'], ms: b['M/s'], vehicleNo: b['Vehicle No'], phone: b['Customer Phone'], total: b['Total'], words: b['Amount in Words'] },
+    lines: data.lines.map(l => ({ particulars: l.Particulars, qty: l.Qty, rate: l.Rate, amount: l.Amount })),
+    replaceNo: editingBillNo && editingBillNo !== no ? editingBillNo : null,
+  };
+  saving = true;
+  const btns = ['btnSave', 'btnSavePrint'].map($);
+  btns.forEach(x => x.disabled = true);
+  $('btnSave').textContent = 'Saving…';
+  try {
+    const res = await api('save', payload);
+    serverNextNo = res.nextBillNo;
+    // remember the new particulars/rates locally until the next init
+    payload.lines.forEach(l => {
+      const i = parts.findIndex(p => p.name.toLowerCase() === l.particulars.toLowerCase());
+      if (i >= 0) parts[i].rate = l.rate; else parts.push({ name: l.particulars, rate: l.rate });
+    });
+    refreshSuggestions();
+    toast(`Bill No. ${no} saved to Google Sheet`);
+    if (andPrint) printBill(data);
+    resetForm();
+  } catch (e) {
+    toast('Not saved: ' + e.message, true);
+  } finally {
+    saving = false;
+    btns.forEach(x => x.disabled = false);
+    $('btnSave').textContent = 'Save';
+  }
+}
+$('btnSave').onclick = () => save(false);
+$('btnSavePrint').onclick = () => save(true);
+$('btnClear').onclick = async () => { if (await ask('Clear this bill and start a new one?')) resetForm(); };
+
+/* ---------- past bills ---------- */
+let searchTimer, searchSeq = 0;
+function renderPast() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(async () => {
+    if (!connected) { $('pastRows').innerHTML = ''; $('pastEmpty').hidden = false; $('pastEmpty').textContent = 'Connect to the Google Sheet to see past bills.'; return; }
+    const seq = ++searchSeq;
+    $('pastEmpty').hidden = false;
+    $('pastEmpty').textContent = 'Searching…';
+    let bills;
+    try { ({ bills } = await api('search', { q: $('q').value.trim(), from: $('from').value, to: $('to').value })); }
+    catch (e) { $('pastEmpty').textContent = e.message; return; }
+    if (seq !== searchSeq) return;   // a newer search is running
+    $('pastRows').innerHTML = bills.map(b => `<tr data-no="${esc(b.billNo)}"><td>${esc(b.billNo)}</td><td>${esc(b.date)}</td><td>${esc(b.ms)}</td><td>${esc(b.vehicleNo)}</td><td>${esc(b.phone)}</td><td class="r">${fmt(b.total)}</td></tr>`).join('');
+    $('pastEmpty').hidden = bills.length > 0;
+    $('pastEmpty').textContent = 'No bills found.';
+  }, 300);
+}
+['q', 'from', 'to'].forEach(id => $(id).addEventListener('input', renderPast));
+$('pastRows').addEventListener('click', e => { const tr = e.target.closest('tr'); if (tr) loadBill(tr.dataset.no); });
+/* ---------- tabs ---------- */
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  $('tab-bill').hidden = name !== 'bill';
+  $('tab-past').hidden = name !== 'past';
+  if (name === 'past') renderPast();
+}
+document.querySelectorAll('.tab').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+/* ---------- misc inputs ---------- */
+$('vehNo').addEventListener('input', e => { const p = e.target.selectionStart; e.target.value = e.target.value.toUpperCase(); e.target.setSelectionRange(p, p); });
+$('phone').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10); });
+
+/* ---------- startup ---------- */
+resetForm();
+refreshSuggestions();
+connect();
+</script>
+</body>
+</html>

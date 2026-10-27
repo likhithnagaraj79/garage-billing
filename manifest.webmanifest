@@ -1,0 +1,12 @@
+{
+  "name": "Sri Manjunatha Garage Billing",
+  "short_name": "Garage Bill",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f4f1",
+  "theme_color": "#222222",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
