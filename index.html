@@ -30,7 +30,16 @@
   button.small { padding: 4px 10px; font-size: 13px; }
   button:disabled { opacity: .5; cursor: not-allowed; }
   input, select { font: inherit; padding: 6px 8px; border: 1px solid var(--line); border-radius: 4px; width: 100%; background: #fff; color: var(--ink); }
-  input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  select {
+    -webkit-appearance: none; appearance: none; cursor: pointer; padding-right: 34px;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M0 0h12L6 8z' fill='%231c1c1c'/%3E%3C/svg%3E") no-repeat right 12px center / 12px 8px;
+  }
+  .sign-row { display: flex; justify-content: flex-end; margin-top: 14px; }
+  .sign-block { width: 240px; text-align: right; }
+  .sign-block .for { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  .sign-block select { font-weight: 600; }
+  .sign-block label { display: block; font-size: 13px; color: var(--muted); margin-top: 4px; }
   input.bad { border-color: var(--accent); background: #fdecea; }
 
   .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px 16px; background: #222; color: #fff; }
@@ -49,7 +58,7 @@
   .bill-head h1 { margin: 6px 0 2px; font-size: 26px; letter-spacing: 1px; }
   .bill-head p { margin: 2px 0; font-size: 14px; color: var(--muted); }
 
-  .meta { display: grid; grid-template-columns: 80px 150px 1.4fr 1fr 120px 120px; gap: 10px; margin-bottom: 14px; align-items: end; }
+  .meta { display: grid; grid-template-columns: 80px 150px 1.4fr 1fr 130px; gap: 10px; margin-bottom: 14px; align-items: end; }
   .meta label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 3px; }
 
   table.items { width: 100%; border-collapse: collapse; }
@@ -167,6 +176,7 @@
     .row-tools #btnAddRow { width: 100%; border-style: dashed; }
     .row-tools .spacer { display: none; }
     .row-tools #btnClear, .row-tools #btnPrint { flex: 1; }
+    .sign-block { width: 100%; }
     .actions { margin: 12px -12px -12px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); gap: 6px; }
     .actions button { padding: 8px 10px; }
 
@@ -246,8 +256,7 @@
       <div><label for="billDate">Date</label><input id="billDate" type="date"></div>
       <div class="wide"><label for="ms">M/s. (Customer / Vehicle model)</label><input id="ms" placeholder="TATA TIAGO" enterkeyhint="next" autocapitalize="characters"></div>
       <div class="wide"><label for="vehNo">Vehicle No.</label><input id="vehNo" placeholder="KA03NA3457" style="text-transform:uppercase" enterkeyhint="next" autocapitalize="characters" autocomplete="off"></div>
-      <div><label for="phone">Customer Phone</label><input id="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10 digits" enterkeyhint="next"></div>
-      <div><label for="signatory">Authorised Signatory</label><select id="signatory"><option>Rakshith</option><option>Pramod</option></select></div>
+      <div class="wide"><label for="phone">Customer Phone</label><input id="phone" type="tel" inputmode="numeric" maxlength="10" placeholder="10 digits" enterkeyhint="next"></div>
     </div>
 
     <table class="items">
@@ -266,6 +275,13 @@
       <button id="btnPrint">Print</button>
     </div>
     <p class="words" id="words"></p>
+    <div class="sign-row">
+      <div class="sign-block">
+        <div class="for">For SRI MANJUNATHA GARAGE</div>
+        <select id="signatory" aria-label="Authorised Signatory"><option>Rakshith</option><option>Pramod</option></select>
+        <label for="signatory">Authorised Signatory</label>
+      </div>
+    </div>
 
     <div class="actions no-print">
       <div class="sticky-total"><small>Total</small><b id="stickyTotal">₹ 0</b></div>
